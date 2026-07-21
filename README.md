@@ -43,3 +43,20 @@
 
 - [Product Brief](docs/product-brief.md)
 - [Feature Spec](docs/feature-spec.md)
+
+## Prototype
+
+```bash
+npm install
+npm run dev
+```
+
+The current prototype is a Vite + React web app. It focuses on the first product loop:
+
+- Register an item card
+- Add a short memory note
+- Choose the item's future status
+- Draft a LINE-friendly family share message
+- Collect simple family responses
+- Show disposal guidance without making region-specific claims
+- Generate a thank-you card and masked SNS draft
