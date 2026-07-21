@@ -46,6 +46,10 @@
 
 ## Prototype
 
+Live prototype:
+
+- https://storybox-eta.vercel.app
+
 ```bash
 npm install
 npm run dev
