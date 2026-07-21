@@ -2,9 +2,9 @@
 
 ## Product Name
 
-Working name: ものがたり箱
+Working name: story_box
 
-Repository name: monogatari-box
+Repository name: story_box
 
 ## One-Liner
 
@@ -14,7 +14,7 @@ Repository name: monogatari-box
 
 日本は超高齢化が進み、これから高齢期に入る世代はスマホ利用に慣れています。一方で、実家片付け、生前整理、遺品整理では「物そのもの」よりも、誰の思い出があるのか、誰が欲しいのか、捨ててよいのかが分からないことが負担になります。
 
-既存サービスは、写真整理、家族アルバム、終活、持ち物管理、断捨離SNSに分かれがちです。ものがたり箱は、思い出の品の記録と家族への引き継ぎ判断を同じ体験にまとめます。
+既存サービスは、写真整理、家族アルバム、終活、持ち物管理、断捨離SNSに分かれがちです。story_boxは、思い出の品の記録と家族への引き継ぎ判断を同じ体験にまとめます。
 
 ## Competitor Lessons
 
@@ -122,4 +122,3 @@ Add-ons:
 - QRシール印刷
 - 実家片付け用PDF
 - 整理収納、買取、寄付、遺品整理サービスへの送客
-
