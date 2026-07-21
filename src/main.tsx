@@ -1,69 +1,48 @@
-import React, { ChangeEvent, useMemo, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
-  BookOpenText,
   Camera,
   Check,
-  ChevronRight,
-  ClipboardCheck,
-  Gift,
+  Copy,
+  ExternalLink,
   HeartHandshake,
-  Home,
-  ImagePlus,
-  Info,
-  MapPin,
   MessageCircle,
-  Mic,
-  QrCode,
+  Plus,
   Recycle,
   Search,
-  Send,
+  Share2,
   ShieldCheck,
-  Sparkles,
-  Tags,
   Trash2,
-  UserRoundCheck,
 } from "lucide-react";
 import "./styles.css";
 
-type Status =
-  | "残す"
-  | "家族に聞く"
-  | "譲る"
-  | "売る"
-  | "寄付する"
-  | "写真だけ残して手放す"
-  | "処分する"
-  | "保留";
-
-type FamilyResponse = "欲しい" | "いらない" | "写真だけ見たい" | "相談したい";
+type Status = "残す" | "家族に聞く" | "譲る" | "売る" | "寄付する" | "手放す" | "保留";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   category: string;
   owner: string;
   location: string;
-  era: string;
   memory: string;
   status: Status;
   image: string;
-  recipient: string;
-  responses: Record<FamilyResponse, number>;
-  guide: string[];
+  wantedBy: string[];
+  createdAt: string;
 };
 
-const statuses: Status[] = [
-  "残す",
-  "家族に聞く",
-  "譲る",
-  "売る",
-  "寄付する",
-  "写真だけ残して手放す",
-  "処分する",
-  "保留",
-];
+type FormState = {
+  name: string;
+  category: string;
+  owner: string;
+  location: string;
+  memory: string;
+  status: Status;
+  image: string;
+};
+
+const storageKey = "story_box_items_v2";
 
 const categories = [
   "写真・アルバム",
@@ -76,83 +55,102 @@ const categories = [
   "子どもの作品",
   "記念品",
   "家電",
-  "よく分からない物",
+  "その他",
 ];
+
+const statuses: Status[] = ["残す", "家族に聞く", "譲る", "売る", "寄付する", "手放す", "保留"];
+
+const guideByCategory: Record<string, string[]> = {
+  "写真・アルバム": ["個人情報を確認", "必要なページだけ撮影", "紙の処分は自治体確認"],
+  食器: ["割れ物として扱う", "セットなら買取候補", "寄付先を確認"],
+  "着物・服": ["状態を写真で残す", "買取・寄付候補", "カビや防虫剤に注意"],
+  アクセサリー: ["家族に先に確認", "価値不明なら保留", "専門店相談も候補"],
+  趣味の道具: ["付属品をまとめる", "専門店・フリマ候補", "動作確認できれば記録"],
+  "手紙・書類": ["個人情報に注意", "写真公開しない", "裁断・溶解処理候補"],
+  家具: ["搬出経路を確認", "粗大ごみ候補", "譲渡・買取候補"],
+  "子どもの作品": ["本人に確認", "写真だけ残す候補", "一言メモを添える"],
+  記念品: ["由来を先にメモ", "欲しい人を確認", "写真だけ残す候補"],
+  家電: ["小型家電回収候補", "電池・データに注意", "自治体確認が必要"],
+  その他: ["家族に確認", "自治体確認が必要", "判断できなければ保留"],
+};
 
 const sampleItems: Item[] = [
   {
-    id: 1,
+    id: "sample-cup",
     name: "祖母の花柄カップ",
     category: "食器",
     owner: "母",
     location: "実家 1階 食器棚",
-    era: "1980年代",
-    memory:
-      "来客の日だけ出していたカップ。祖母が紅茶を入れてくれた時の香りまで思い出す。",
+    memory: "来客の日だけ出していたカップ。祖母が紅茶を入れてくれた時の香りまで思い出す。",
     status: "家族に聞く",
     image:
       "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=1100&q=80",
-    recipient: "未定",
-    responses: { 欲しい: 2, いらない: 1, 写真だけ見たい: 1, 相談したい: 0 },
-    guide: ["割れ物として梱包", "リサイクルショップ向き", "寄付できる可能性あり"],
+    wantedBy: ["姉", "長男"],
+    createdAt: new Date().toISOString(),
   },
   {
-    id: 2,
+    id: "sample-camera",
     name: "父のフィルムカメラ",
     category: "趣味の道具",
     owner: "父",
     location: "書斎 引き出し",
-    era: "1970年代",
-    memory:
-      "運動会や旅行でいつも首から下げていたカメラ。使えるかは分からないが、父らしい品。",
+    memory: "旅行や運動会で父がいつも首から下げていたもの。使えるかは分からないが、父らしい品。",
     status: "譲る",
     image:
       "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1100&q=80",
-    recipient: "長男候補",
-    responses: { 欲しい: 1, いらない: 2, 写真だけ見たい: 0, 相談したい: 1 },
-    guide: ["専門店に相談向き", "フリマ向き", "電池・フィルムの取り扱い注意"],
-  },
-  {
-    id: 3,
-    name: "子どもの頃のアルバム",
-    category: "写真・アルバム",
-    owner: "自分",
-    location: "押し入れ 上段",
-    era: "1990年代",
-    memory:
-      "全部は残せないけれど、家族旅行と入学式のページだけは見返せるようにしたい。",
-    status: "写真だけ残して手放す",
-    image:
-      "https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=1100&q=80",
-    recipient: "データ化後に家族共有",
-    responses: { 欲しい: 0, いらない: 1, 写真だけ見たい: 3, 相談したい: 0 },
-    guide: ["個人情報に注意", "スキャン候補", "紙ごみは自治体確認"],
+    wantedBy: ["長男"],
+    createdAt: new Date().toISOString(),
   },
 ];
 
-const guideByCategory: Record<string, string[]> = {
-  "写真・アルバム": ["個人情報に注意", "スキャン候補", "紙ごみは自治体確認"],
-  食器: ["割れ物として梱包", "リサイクルショップ向き", "寄付できる可能性あり"],
-  "着物・服": ["買取相談向き", "寄付できる可能性あり", "カビ・防虫剤に注意"],
-  アクセサリー: ["家族確認推奨", "専門店に相談向き", "価値不明なら保留"],
-  趣味の道具: ["専門店に相談向き", "フリマ向き", "付属品を一緒に確認"],
-  "手紙・書類": ["個人情報に注意", "保管年限を確認", "裁断・溶解処理候補"],
-  家具: ["粗大ごみ候補", "搬出経路を確認", "譲渡・買取候補"],
-  "子どもの作品": ["写真だけ残す候補", "本人確認推奨", "ありがとうカード向き"],
-  記念品: ["家族確認推奨", "写真だけ残す候補", "由来をメモ"],
-  家電: ["小型家電回収候補", "自治体確認が必要", "電池・データ消去に注意"],
-  よく分からない物: ["自治体確認が必要", "家族確認推奨", "専門業者に相談向き"],
+const emptyForm: FormState = {
+  name: "",
+  category: "記念品",
+  owner: "",
+  location: "",
+  memory: "",
+  status: "家族に聞く",
+  image: "",
 };
 
-const responseLabels: FamilyResponse[] = [
-  "欲しい",
-  "いらない",
-  "写真だけ見たい",
-  "相談したい",
-];
+function loadItems() {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return sampleItems;
+    const parsed = JSON.parse(stored) as Item[];
+    return parsed.length > 0 ? parsed : sampleItems;
+  } catch {
+    return sampleItems;
+  }
+}
 
-function createItemId(items: Item[]) {
-  return Math.max(...items.map((item) => item.id), 0) + 1;
+function toForm(item: Item): FormState {
+  return {
+    name: item.name,
+    category: item.category,
+    owner: item.owner,
+    location: item.location,
+    memory: item.memory,
+    status: item.status,
+    image: item.image,
+  };
+}
+
+function formToItem(form: FormState, existing?: Item): Item {
+  return {
+    id: existing?.id ?? crypto.randomUUID(),
+    name: form.name.trim() || "名前のない品",
+    category: form.category,
+    owner: form.owner.trim() || "未設定",
+    location: form.location.trim() || "未設定",
+    memory: form.memory.trim() || "まだ思い出メモはありません。",
+    status: form.status,
+    image:
+      form.image ||
+      "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1100&q=80",
+    wantedBy: existing?.wantedBy ?? [],
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+  };
 }
 
 function maskSensitiveText(text: string) {
@@ -166,423 +164,512 @@ function maskSensitiveText(text: string) {
 }
 
 function App() {
-  const [items, setItems] = useState<Item[]>(sampleItems);
-  const [selectedId, setSelectedId] = useState(sampleItems[0].id);
+  const [items, setItems] = useState<Item[]>(loadItems);
+  const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
+  const [form, setForm] = useState<FormState>(() => toForm(items[0] ?? formToItem(emptyForm)));
+  const [mode, setMode] = useState<"view" | "edit" | "new">("view");
   const [city, setCity] = useState("世田谷区");
-  const [shareMessage, setShareMessage] = useState("");
-  const [snsDraft, setSnsDraft] = useState(
-    "祖母の花柄カップを写真で残して、手放す準備をしています。東京都世田谷区の実家に長くあったものです。"
-  );
-  const [newItem, setNewItem] = useState({
-    name: "",
-    category: "記念品",
-    owner: "",
-    location: "",
-    memory: "",
-    image: "",
-  });
+  const [copied, setCopied] = useState("");
+  const [wantedName, setWantedName] = useState("");
 
   const selected = items.find((item) => item.id === selectedId) ?? items[0];
 
-  const totalResponses = useMemo(
-    () => Object.values(selected.responses).reduce((sum, value) => sum + value, 0),
-    [selected.responses]
-  );
-
-  const completion = useMemo(() => {
-    const decided = items.filter(
-      (item) => !["保留", "家族に聞く"].includes(item.status)
-    ).length;
-    return Math.round((decided / items.length) * 100);
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(items));
   }, [items]);
 
-  function updateSelected(partial: Partial<Item>) {
+  useEffect(() => {
+    if (!selected && items[0]) {
+      setSelectedId(items[0].id);
+    }
+  }, [items, selected]);
+
+  const visibleItem = mode === "new" ? formToItem(form) : selected;
+  const guides = guideByCategory[visibleItem?.category ?? "その他"] ?? guideByCategory["その他"];
+
+  const summary = useMemo(() => {
+    const decided = items.filter((item) => !["保留", "家族に聞く"].includes(item.status)).length;
+    return {
+      total: items.length,
+      askFamily: items.filter((item) => item.status === "家族に聞く").length,
+      decided,
+    };
+  }, [items]);
+
+  function startNew() {
+    setMode("new");
+    setForm(emptyForm);
+    setCopied("");
+  }
+
+  function startEdit(item: Item) {
+    setMode("edit");
+    setForm(toForm(item));
+    setCopied("");
+  }
+
+  function cancelForm() {
+    setMode("view");
+    if (selected) setForm(toForm(selected));
+  }
+
+  function saveForm() {
+    if (mode === "new") {
+      const item = formToItem(form);
+      setItems((current) => [item, ...current]);
+      setSelectedId(item.id);
+      setForm(toForm(item));
+      setMode("view");
+      return;
+    }
+
+    if (!selected) return;
+    const updated = formToItem(form, selected);
+    setItems((current) => current.map((item) => (item.id === selected.id ? updated : item)));
+    setForm(toForm(updated));
+    setMode("view");
+  }
+
+  function selectItem(item: Item) {
+    setSelectedId(item.id);
+    setForm(toForm(item));
+    setMode("view");
+    setCopied("");
+  }
+
+  function deleteSelected() {
+    if (!selected) return;
+    const next = items.filter((item) => item.id !== selected.id);
+    setItems(next);
+    if (next[0]) {
+      setSelectedId(next[0].id);
+      setForm(toForm(next[0]));
+    } else {
+      setSelectedId("");
+      setForm(emptyForm);
+      setMode("new");
+    }
+  }
+
+  function updateStatus(status: Status) {
+    if (!selected) return;
     setItems((current) =>
-      current.map((item) => (item.id === selected.id ? { ...item, ...partial } : item))
+      current.map((item) => (item.id === selected.id ? { ...item, status } : item))
     );
   }
 
-  function addFamilyResponse(response: FamilyResponse) {
-    updateSelected({
-      responses: {
-        ...selected.responses,
-        [response]: selected.responses[response] + 1,
-      },
-    });
+  function addWantedBy() {
+    if (!selected || !wantedName.trim()) return;
+    const name = wantedName.trim();
+    setItems((current) =>
+      current.map((item) =>
+        item.id === selected.id && !item.wantedBy.includes(name)
+          ? { ...item, wantedBy: [...item.wantedBy, name], status: "譲る" }
+          : item
+      )
+    );
+    setWantedName("");
+  }
+
+  function removeWantedBy(name: string) {
+    if (!selected) return;
+    setItems((current) =>
+      current.map((item) =>
+        item.id === selected.id ? { ...item, wantedBy: item.wantedBy.filter((entry) => entry !== name) } : item
+      )
+    );
+  }
+
+  function updateForm(key: keyof FormState, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
   }
 
   function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setNewItem((current) => ({ ...current, image: URL.createObjectURL(file) }));
+    const reader = new FileReader();
+    reader.onload = () => updateForm("image", String(reader.result));
+    reader.readAsDataURL(file);
   }
 
-  function addNewItem() {
-    if (!newItem.name.trim()) return;
-    const item: Item = {
-      id: createItemId(items),
-      name: newItem.name.trim(),
-      category: newItem.category,
-      owner: newItem.owner || "未設定",
-      location: newItem.location || "未設定",
-      era: "時期未設定",
-      memory: newItem.memory || "まだ思い出メモはありません。",
-      status: "家族に聞く",
-      image:
-        newItem.image ||
-        "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1100&q=80",
-      recipient: "未定",
-      responses: { 欲しい: 0, いらない: 0, 写真だけ見たい: 0, 相談したい: 0 },
-      guide: guideByCategory[newItem.category] ?? guideByCategory["よく分からない物"],
-    };
-
-    setItems((current) => [item, ...current]);
-    setSelectedId(item.id);
-    setNewItem({ name: "", category: "記念品", owner: "", location: "", memory: "", image: "" });
+  function shareText(item: Item) {
+    return `実家の整理で「${item.name}」の行き先を確認しています。\n\n${item.memory}\n\n欲しい / 写真だけ残したい / いらない のどれかを教えてください。`;
   }
 
-  async function createShareMessage() {
-    const message = `story_boxで「${selected.name}」の行き先を確認しています。欲しい / いらない / 写真だけ見たい / 相談したい から返事をください。`;
-    setShareMessage(message);
+  async function copyShareText() {
+    if (!selected) return;
+    const text = shareText(selected);
     try {
-      await navigator.clipboard.writeText(message);
+      await navigator.clipboard.writeText(text);
+      setCopied("共有文をコピーしました");
     } catch {
-      // Clipboard access can fail in some local preview contexts.
+      setCopied(text);
     }
   }
 
-  const maskedDraft = maskSensitiveText(snsDraft);
+  async function nativeShare() {
+    if (!selected || !navigator.share) {
+      await copyShareText();
+      return;
+    }
+    await navigator.share({ title: selected.name, text: shareText(selected) });
+  }
+
+  function resetData() {
+    setItems(sampleItems);
+    setSelectedId(sampleItems[0].id);
+    setForm(toForm(sampleItems[0]));
+    setMode("view");
+    setCopied("サンプルに戻しました");
+  }
+
+  if (!visibleItem) {
+    return null;
+  }
+
+  const maskedMemory = maskSensitiveText(visibleItem.memory);
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(
-    `${city} ${selected.category} ごみ 分別`
+    `${city} ${visibleItem.category} ごみ 分別`
   )}`;
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar" aria-label="メインナビゲーション">
+    <main className="app">
+      <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">
-            <Archive size={22} aria-hidden="true" />
-          </div>
+          <span className="brand-mark">
+            <Archive size={21} aria-hidden="true" />
+          </span>
           <div>
             <strong>story_box</strong>
-            <span>思い出の品を引き継ぐ</span>
+            <span>思い出の品を、家族で整理する</span>
           </div>
         </div>
+        <button className="add-button" type="button" onClick={startNew}>
+          <Plus size={18} />
+          新しい品
+        </button>
+      </header>
 
-        <nav className="nav-list">
-          <button className="nav-item active" type="button">
-            <Home size={18} />
-            台帳
-          </button>
-          <button className="nav-item" type="button">
-            <MessageCircle size={18} />
-            家族確認
-          </button>
-          <button className="nav-item" type="button">
-            <Recycle size={18} />
-            処分ガイド
-          </button>
-          <button className="nav-item" type="button">
-            <QrCode size={18} />
-            QRラベル
-          </button>
-        </nav>
+      <section className="intro">
+        <div>
+          <p className="eyebrow">生前整理のための試作版</p>
+          <h1>これは残す？誰か欲しい？</h1>
+          <p>
+            写真と思い出を1つだけ残して、家族に聞く。まずはその小さな流れだけに絞りました。
+          </p>
+        </div>
+        <div className="summary">
+          <span>{summary.total}品</span>
+          <span>{summary.askFamily}件確認中</span>
+          <span>{summary.decided}件決定</span>
+        </div>
+      </section>
 
-        <section className="progress-card" aria-label="整理の進捗">
-          <div className="progress-head">
-            <span>整理の進捗</span>
-            <strong>{completion}%</strong>
+      <section className="layout">
+        <aside className="item-list" aria-label="登録品一覧">
+          <div className="section-head">
+            <h2>品物</h2>
+            <button type="button" onClick={resetData}>サンプルに戻す</button>
           </div>
-          <div className="progress-track">
-            <span style={{ width: `${completion}%` }} />
-          </div>
-          <p>保留を減らし、家族が困らない状態に近づけます。</p>
-        </section>
-      </aside>
+          {items.map((item) => (
+            <button
+              className={`list-item ${item.id === selected?.id && mode !== "new" ? "active" : ""}`}
+              key={item.id}
+              type="button"
+              onClick={() => selectItem(item)}
+            >
+              <img src={item.image} alt={`${item.name}の写真`} />
+              <span>
+                <strong>{item.name}</strong>
+                <small>{item.status}</small>
+              </span>
+            </button>
+          ))}
+        </aside>
 
-      <section className="workspace">
-        <header className="hero">
-          <div className="hero-copy">
-            <span className="eyebrow">
-              <Sparkles size={16} />
-              家族でゆるく決める、生前整理の下書き
-            </span>
-            <h1>残す物も、手放す物も、物語が分かる形に。</h1>
-            <p>
-              品物の写真と思い出、家族の希望、処分の方向性を1枚のカードにまとめます。
-              「捨てていいのか分からない」を減らすためのプロトタイプです。
-            </p>
-          </div>
-
-          <div className="hero-photo" aria-label="思い出の品のプレビュー">
-            <img src={selected.image} alt={`${selected.name}の写真`} />
-            <div className="hero-photo-caption">
-              <span>{selected.category}</span>
-              <strong>{selected.name}</strong>
-            </div>
-          </div>
-        </header>
-
-        <section className="stats-row" aria-label="台帳サマリー">
-          <Stat icon={<ClipboardCheck size={20} />} label="登録品" value={`${items.length}品`} />
-          <Stat icon={<UserRoundCheck size={20} />} label="家族回答" value={`${totalResponses}件`} />
-          <Stat icon={<Gift size={20} />} label="譲り先" value={selected.recipient} />
-          <Stat icon={<ShieldCheck size={20} />} label="共有前確認" value="匿名化あり" />
-        </section>
-
-        <section className="main-grid">
-          <div className="left-column">
-            <section className="panel add-panel">
-              <div className="panel-title">
-                <div>
-                  <span className="caption">New item</span>
-                  <h2>物カードを追加</h2>
-                </div>
-                <ImagePlus size={22} aria-hidden="true" />
-              </div>
-
-              <div className="form-grid">
-                <label>
-                  品名
-                  <input
-                    value={newItem.name}
-                    onChange={(event) =>
-                      setNewItem((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="例: 父の腕時計"
-                  />
-                </label>
-                <label>
-                  カテゴリ
-                  <select
-                    value={newItem.category}
-                    onChange={(event) =>
-                      setNewItem((current) => ({ ...current, category: event.target.value }))
-                    }
-                  >
-                    {categories.map((category) => (
-                      <option key={category}>{category}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  持ち主
-                  <input
-                    value={newItem.owner}
-                    onChange={(event) =>
-                      setNewItem((current) => ({ ...current, owner: event.target.value }))
-                    }
-                    placeholder="例: 母"
-                  />
-                </label>
-                <label>
-                  保管場所
-                  <input
-                    value={newItem.location}
-                    onChange={(event) =>
-                      setNewItem((current) => ({ ...current, location: event.target.value }))
-                    }
-                    placeholder="例: 実家 2階 押し入れ"
-                  />
-                </label>
-              </div>
-
-              <label className="wide-label">
-                一言思い出メモ
-                <textarea
-                  value={newItem.memory}
-                  onChange={(event) =>
-                    setNewItem((current) => ({ ...current, memory: event.target.value }))
-                  }
-                  placeholder="誰から来たものか、なぜ捨てづらいかを一言で。"
-                />
-              </label>
-
-              <div className="upload-row">
-                <label className="upload-button">
-                  <Camera size={18} />
-                  写真を選ぶ
-                  <input type="file" accept="image/*" onChange={handleImageUpload} />
-                </label>
-                <button className="primary-button" type="button" onClick={addNewItem}>
-                  追加する
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </section>
-
-            <section className="item-board" aria-label="登録された品物">
-              {items.map((item) => (
-                <button
-                  className={`item-card ${item.id === selected.id ? "selected" : ""}`}
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedId(item.id)}
-                >
-                  <img src={item.image} alt={`${item.name}の写真`} />
-                  <div>
-                    <span>{item.category}</span>
-                    <strong>{item.name}</strong>
-                    <small>{item.status}</small>
-                  </div>
-                </button>
-              ))}
-            </section>
-          </div>
-
-          <section className="panel detail-panel">
-            <div className="panel-title">
-              <div>
-                <span className="caption">Selected item</span>
-                <h2>{selected.name}</h2>
-              </div>
-              <BookOpenText size={22} aria-hidden="true" />
-            </div>
-
-            <div className="detail-image">
-              <img src={selected.image} alt={`${selected.name}の大きな写真`} />
-            </div>
-
-            <div className="meta-list">
-              <Meta icon={<Tags size={17} />} label="カテゴリ" value={selected.category} />
-              <Meta icon={<HeartHandshake size={17} />} label="持ち主" value={selected.owner} />
-              <Meta icon={<MapPin size={17} />} label="保管場所" value={selected.location} />
-            </div>
-
-            <section className="memory-box">
-              <div>
-                <Mic size={18} />
-                <span>思い出メモ</span>
-              </div>
-              <p>{selected.memory}</p>
-            </section>
-
-            <div className="status-picker" aria-label="行き先ステータス">
-              {statuses.map((status) => (
-                <button
-                  className={selected.status === status ? "active" : ""}
-                  key={status}
-                  type="button"
-                  onClick={() => updateSelected({ status })}
-                >
-                  {status}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <aside className="right-column">
-            <section className="panel share-panel">
-              <div className="panel-title">
-                <div>
-                  <span className="caption">Family share</span>
-                  <h2>家族に聞く</h2>
-                </div>
-                <Send size={22} aria-hidden="true" />
-              </div>
-              <p className="panel-copy">
-                LINEに貼れる短文を作り、家族の反応をここに集める想定です。
-              </p>
-
-              <button className="line-button" type="button" onClick={createShareMessage}>
-                <MessageCircle size={18} />
-                共有文を作る
-              </button>
-              {shareMessage && <p className="share-message">{shareMessage}</p>}
-
-              <div className="response-grid">
-                {responseLabels.map((label) => (
-                  <button key={label} type="button" onClick={() => addFamilyResponse(label)}>
-                    <span>{label}</span>
-                    <strong>{selected.responses[label]}</strong>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="panel guide-panel">
-              <div className="panel-title">
-                <div>
-                  <span className="caption">Disposal guide</span>
-                  <h2>処分の目安</h2>
-                </div>
-                <Recycle size={22} aria-hidden="true" />
-              </div>
-
-              <div className="guide-list">
-                {selected.guide.map((guide) => (
-                  <span key={guide}>
-                    <Check size={16} />
-                    {guide}
-                  </span>
-                ))}
-              </div>
-
-              <label className="city-search">
-                市区町村
-                <div>
-                  <input value={city} onChange={(event) => setCity(event.target.value)} />
-                  <a href={searchUrl} target="_blank" rel="noreferrer" aria-label="自治体の分別検索を開く">
-                    <Search size={18} />
-                  </a>
-                </div>
-              </label>
-              <p className="notice">
-                <Info size={16} />
-                地域差が大きいため、処分方法は断定せず自治体確認へ誘導します。
-              </p>
-            </section>
-
-            <section className="panel thanks-panel">
-              <div className="panel-title">
-                <div>
-                  <span className="caption">Thank-you card</span>
-                  <h2>ありがとうカード</h2>
-                </div>
-                <Sparkles size={22} aria-hidden="true" />
-              </div>
-              <div className="thanks-card">
-                <img src={selected.image} alt="" />
-                <div>
-                  <span>{selected.era}</span>
-                  <strong>{selected.name}</strong>
-                  <p>{selected.memory}</p>
-                </div>
-              </div>
-
-              <label className="wide-label compact">
-                SNS共有前の下書き
-                <textarea value={snsDraft} onChange={(event) => setSnsDraft(event.target.value)} />
-              </label>
-              <div className="masked-output">
-                <ShieldCheck size={17} />
-                <span>{maskedDraft}</span>
-              </div>
-            </section>
-          </aside>
+        <section className="main-card">
+          {mode === "view" && selected ? (
+            <ItemView
+              city={city}
+              copied={copied}
+              guides={guides}
+              item={selected}
+              maskedMemory={maskedMemory}
+              searchUrl={searchUrl}
+              setCity={setCity}
+              startEdit={startEdit}
+              updateStatus={updateStatus}
+              copyShareText={copyShareText}
+              nativeShare={nativeShare}
+              deleteSelected={deleteSelected}
+              wantedName={wantedName}
+              setWantedName={setWantedName}
+              addWantedBy={addWantedBy}
+              removeWantedBy={removeWantedBy}
+            />
+          ) : (
+            <ItemForm
+              form={form}
+              mode={mode === "edit" ? "edit" : "new"}
+              onCancel={cancelForm}
+              onImageUpload={handleImageUpload}
+              onSave={saveForm}
+              updateForm={updateForm}
+            />
+          )}
         </section>
       </section>
     </main>
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function ItemView({
+  addWantedBy,
+  city,
+  copied,
+  copyShareText,
+  deleteSelected,
+  guides,
+  item,
+  maskedMemory,
+  nativeShare,
+  removeWantedBy,
+  searchUrl,
+  setCity,
+  setWantedName,
+  startEdit,
+  updateStatus,
+  wantedName,
+}: {
+  addWantedBy: () => void;
+  city: string;
+  copied: string;
+  copyShareText: () => void;
+  deleteSelected: () => void;
+  guides: string[];
+  item: Item;
+  maskedMemory: string;
+  nativeShare: () => void;
+  removeWantedBy: (name: string) => void;
+  searchUrl: string;
+  setCity: (value: string) => void;
+  setWantedName: (value: string) => void;
+  startEdit: (item: Item) => void;
+  updateStatus: (status: Status) => void;
+  wantedName: string;
+}) {
   return (
-    <div className="stat-card">
-      {icon}
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <>
+      <div className="item-hero">
+        <img src={item.image} alt={`${item.name}の写真`} />
+      </div>
+
+      <div className="content-block">
+        <div className="title-row">
+          <div>
+            <p className="category">{item.category}</p>
+            <h2>{item.name}</h2>
+          </div>
+          <button className="ghost-button" type="button" onClick={() => startEdit(item)}>
+            編集
+          </button>
+        </div>
+
+        <p className="memory">{item.memory}</p>
+
+        <div className="small-meta">
+          <span>{item.owner}</span>
+          <span>{item.location}</span>
+        </div>
+      </div>
+
+      <section className="content-block">
+        <h3>行き先</h3>
+        <div className="status-row">
+          {statuses.map((status) => (
+            <button
+              className={item.status === status ? "active" : ""}
+              key={status}
+              type="button"
+              onClick={() => updateStatus(status)}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-block action-block">
+        <div className="action-title">
+          <MessageCircle size={18} />
+          <h3>家族に聞く</h3>
+        </div>
+        <div className="button-row">
+          <button className="primary-button" type="button" onClick={nativeShare}>
+            <Share2 size={18} />
+            共有する
+          </button>
+          <button className="secondary-button" type="button" onClick={copyShareText}>
+            <Copy size={18} />
+            文面コピー
+          </button>
+        </div>
+        {copied && <p className="note">{copied}</p>}
+
+        <div className="wanted-box">
+          <label>
+            欲しい人メモ
+            <div className="inline-input">
+              <input
+                value={wantedName}
+                onChange={(event) => setWantedName(event.target.value)}
+                placeholder="例: 姉"
+              />
+              <button type="button" onClick={addWantedBy}>追加</button>
+            </div>
+          </label>
+          <div className="chips">
+            {item.wantedBy.length === 0 ? (
+              <span className="muted-chip">まだ希望者なし</span>
+            ) : (
+              item.wantedBy.map((name) => (
+                <button key={name} type="button" onClick={() => removeWantedBy(name)}>
+                  {name} ×
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="content-block">
+        <div className="action-title">
+          <Recycle size={18} />
+          <h3>処分の目安</h3>
+        </div>
+        <ul className="guide-list">
+          {guides.map((guide) => (
+            <li key={guide}>
+              <Check size={16} />
+              {guide}
+            </li>
+          ))}
+        </ul>
+        <label className="city-search">
+          市区町村で調べる
+          <div className="inline-input">
+            <input value={city} onChange={(event) => setCity(event.target.value)} />
+            <a href={searchUrl} target="_blank" rel="noreferrer">
+              <Search size={18} />
+              検索
+            </a>
+          </div>
+        </label>
+      </section>
+
+      <section className="content-block quiet-block">
+        <div className="action-title">
+          <ShieldCheck size={18} />
+          <h3>共有前チェック</h3>
+        </div>
+        <p>{maskedMemory}</p>
+      </section>
+
+      <button className="delete-button" type="button" onClick={deleteSelected}>
+        <Trash2 size={18} />
+        この品を削除
+      </button>
+    </>
   );
 }
 
-function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function ItemForm({
+  form,
+  mode,
+  onCancel,
+  onImageUpload,
+  onSave,
+  updateForm,
+}: {
+  form: FormState;
+  mode: "edit" | "new";
+  onCancel: () => void;
+  onImageUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onSave: () => void;
+  updateForm: (key: keyof FormState, value: string) => void;
+}) {
   return (
-    <div className="meta-item">
-      {icon}
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <section className="form-card">
+      <div className="title-row">
+        <div>
+          <p className="category">{mode === "new" ? "新規登録" : "編集"}</p>
+          <h2>{mode === "new" ? "品物を追加" : "品物を編集"}</h2>
+        </div>
+      </div>
+
+      <label className="photo-picker">
+        {form.image ? <img src={form.image} alt="選択した写真" /> : <Camera size={32} />}
+        <span>写真を選ぶ</span>
+        <input type="file" accept="image/*" onChange={onImageUpload} />
+      </label>
+
+      <div className="form-grid">
+        <label>
+          品名
+          <input value={form.name} onChange={(event) => updateForm("name", event.target.value)} />
+        </label>
+        <label>
+          カテゴリ
+          <select
+            value={form.category}
+            onChange={(event) => updateForm("category", event.target.value)}
+          >
+            {categories.map((category) => (
+              <option key={category}>{category}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          持ち主
+          <input value={form.owner} onChange={(event) => updateForm("owner", event.target.value)} />
+        </label>
+        <label>
+          保管場所
+          <input
+            value={form.location}
+            onChange={(event) => updateForm("location", event.target.value)}
+          />
+        </label>
+      </div>
+
+      <label>
+        一言思い出メモ
+        <textarea
+          value={form.memory}
+          onChange={(event) => updateForm("memory", event.target.value)}
+          placeholder="誰から来たものか、なぜ残していたかを一言で。"
+        />
+      </label>
+
+      <label>
+        行き先
+        <select value={form.status} onChange={(event) => updateForm("status", event.target.value)}>
+          {statuses.map((status) => (
+            <option key={status}>{status}</option>
+          ))}
+        </select>
+      </label>
+
+      <div className="button-row">
+        <button className="primary-button" type="button" onClick={onSave}>
+          <HeartHandshake size={18} />
+          保存
+        </button>
+        <button className="secondary-button" type="button" onClick={onCancel}>
+          やめる
+        </button>
+      </div>
+    </section>
   );
 }
 
